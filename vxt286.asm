@@ -1001,7 +1001,7 @@ print_error:
 	mov	ax, 80h
 	mov	es, ax
 
-	add	bl, 0Dh
+	add	bl, 0Ah
 	push	bx
 @@mem_count:
 	pop	ax				; Cursory check of memory
@@ -1034,6 +1034,13 @@ print_error:
 	mov	ax, 1Eh				; Flush keyboard buffer in case user
 	mov	[es:1Ah], ax			;   was mashing keys during memory test
 	mov	[es:1Ch], ax
+
+	inc	bh
+	xor	bl, bl
+	mov	ax, bx
+	call	locate						; Position cursor
+	mov	si, offset str_ext_ram_test		; Extended memory size string
+	call	print						; print string
 
 do_boot:
 
@@ -1242,7 +1249,7 @@ proc	display_cpu	near
 	mov	si, offset str_no_fpu
 	test	[byte es:10h], 00000010b
 	jz	@@no_fpu
-	mov	si, offset str_8087
+	mov	si, offset str_287
 @@no_fpu:
 	call	print
 	ret
@@ -2316,9 +2323,6 @@ proc	stuff_keyboard_buffer	near
 	ret
 
 endp	stuff_keyboard_buffer
-
-
-str_8088	db	'8088 CPU (', 0
 
 
 ;---------------------------------------------------------------------------------------------------
@@ -4269,7 +4273,8 @@ endp	beep
 str_mono	db	195, ' Mono/Hercules Graphics', 0
 str_clock	db	195, ' Clock', 0
 
-str_ram_test	db	'Testing RAM:    K OK', 0
+str_ram_test	db	'Base RAM:    K OK', 0
+str_ext_ram_test db 'Extended RAM: 64K OK', 0 ; TODO: Do not hardcode this. :)
 
 str_error	db	'System Error: ', 0
 str_parity_err	db	'Parity error at: ?????', 0
@@ -4279,7 +4284,7 @@ str_continue	db	CR, LF, 'Continue? ', 0
 ;---------------------------------------------------------------------------------------------------
 ; Interrupt 12h - Memory Size
 ;---------------------------------------------------------------------------------------------------
-	entry	0F841h				; IBM entry for memory size
+;	entry	0F841h				; IBM entry for memory size
 proc	int_12	far
 
 	sti					; Kbytes of memory present
@@ -4296,7 +4301,7 @@ endp	int_12
 ;---------------------------------------------------------------------------------------------------
 ; Interrupt 11h - Equipment Check
 ;---------------------------------------------------------------------------------------------------
-	entry	0F84Dh				; IBM entry for equipment check
+;	entry	0F84Dh				; IBM entry for equipment check
 proc	int_11	far
 
 	sti					; Equipment present
@@ -4313,11 +4318,20 @@ endp	int_11
 ;---------------------------------------------------------------------------------------------------
 ; Interrupt 15h - Cassette
 ;---------------------------------------------------------------------------------------------------
-	entry	0F859h				; IBM entry for cassette interrupt
+;	entry	0F859h				; IBM entry for cassette interrupt
 proc	int_15	far
+	
+	clc
+	cmp	ah, 88h 		; Read extended memory size.
+	je	@@int_15_mem_size
 
 	stc					; Cassette service (error ret)
 	mov	ah, 86h
+	retf	2
+
+@@int_15_mem_size:
+
+	mov	ax, 64 			; TODO: Just say 64K for now.
 	retf	2
 
 endp	int_15
@@ -4326,7 +4340,8 @@ endp	int_15
 ;---------------------------------------------------------------------------------------------------
 ; Interrupt 2h - Non-Maskable Interrupt
 ;---------------------------------------------------------------------------------------------------
-	entry	0F85Fh				; IBM non-maskable interrupt entry
+;	entry	0F85Fh				; IBM non-maskable interrupt entry
+
 proc	int_2	far
 
 	push	ax				; Non-maskable interrupt
@@ -4452,18 +4467,11 @@ str_no_fpu	db	'No FPU)', 0
 
 
 ;---------------------------------------------------------------------------------------------------
-; Detect CPU type (8088 or V20)
+; Detect CPU type
 ;---------------------------------------------------------------------------------------------------
-proc	cpu_check	near			; Test for 8088 or V20 CPU
+proc	cpu_check	near
 
-	xor	al, al				; Clean out al to set ZF
-	mov	al, 40h				; mul on V20 does not affect the zero flag
-	mul	al				;   but on an 8088 the zero flag is used
-	jz	@@have_v20			; Was zero flag set?
-	mov	si, offset str_8088		;   No, so we have an 8088 CPU
-	ret
-@@have_v20:
-	mov	si, offset str_v20		;   Otherwise we have a V20 CPU
+	mov	si, offset str_286
 	ret
 
 endp	cpu_check
@@ -5159,8 +5167,8 @@ proc	print_cr_lf	near
 endp	print_cr_lf
 
 
-str_v20		db	'V20 CPU (', 0
-str_8087	db	'8087 FPU)', 0
+str_286	db	'286 CPU (', 0
+str_287	db	'287 FPU)', 0
 
 
 ;--------------------------------------------------------------------------------------------------
@@ -5182,7 +5190,8 @@ date	db	"05/20/22", 0			; Release date (MM/DD/YY)
 						;   originally 08/23/87
 	entry	0FFFEh
 
-	db	0FCh			; Computer type (AT/XT286)
+	;db	0FCh			; Computer type (AT/XT286)
+	db	0FFh			; TODO: Change to AT (FC), currently there is an issue with the keyboard.
 ;	db	0				; Checksum byte (8K ROM must sum to 0 mod 256)
 
 ends	code
