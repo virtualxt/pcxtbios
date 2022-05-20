@@ -4,11 +4,11 @@
 # *** Set ide=1 to include XT-IDE BIOS
 # *** Set basic=1 to include IBM ROM BASIC
 
-bios=pcxtbios
+bios=vxt286
 
 floppy=0
 ide=0
-basic=1
+basic=0
 
 function goto
 {

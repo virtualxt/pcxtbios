@@ -1,4 +1,8 @@
 ;===================================================================================================
+;                                        VirtualXT 286 BIOS
+;===================================================================================================
+;
+;===================================================================================================
 ;                  Super PC/Turbo XT BIOS for Intel 8088 or NEC "V20" Motherboards
 ;              Additions by Ya`akov Miles (1987) and Jon Petrosky <Plasma> (2008-2017)
 ;                                     http://www.phatcode.net/
@@ -36,11 +40,6 @@
 ;---------------------------------------------------------------------------------------------------
 ; BIOS Configuration Definitions
 ;---------------------------------------------------------------------------------------------------
-;IBM_PC		= 1		; Define if using with original IBM PC (5150) or exact clone
-				;   This will read the 5150 config switches correctly
-				;   and set the BIOS computer type to FFh (PC) rather than FEh (XT).
-				;   You should also disable the TURBO_ENABLED and SLOW_FLOPPY
-				;   definitions if using with an original PC.
 
 TURBO_ENABLED	= 1		; Define to enable "turbo" support
 TURBO_BOOT	= 1		; Define to boot up in turbo mode (full speed)
@@ -73,10 +72,6 @@ ENHANCED_KEYB	= 1		; Define for Int 9h enhanced (101-key) keyboard support
 
 ROM_DELAY	= 2		; Seconds to wait after expansion ROM inits (keypress will bypass)
 BOOT_DELAY	= 3		; Seconds to wait after memory test (keypress will bypass)
-
-;WARM_BOOT_BASIC = 1		; Define to display ROM BASIC boot prompt during a warm boot
-
-;RETRY_DISK	= 1		; Define to always retry disk boot, even if ROM BASIC present
 
 TITLE_BAR_FADE	= 1		; Define for fancy pants (disable to save ROM space)
 
@@ -442,20 +437,7 @@ segment	code
 
 	org	0E000h				; 8K ROM BIOS starts at F000:E000
 
-
-ifdef	IBM_PC
-ifdef	TURBO_ENABLED
-	str_banner	db	'Turbo PC BIOS v3.1 - 10/28/2017', 0
-else
-	str_banner	db	'Super PC BIOS v3.1 - 10/28/2017', 0
-endif
-else
-ifdef	TURBO_ENABLED
-	str_banner	db	'Turbo XT BIOS v3.1 - 10/28/2017', 0
-else
-	str_banner	db	'Super XT BIOS v3.1 - 10/28/2017', 0
-endif
-endif
+str_banner	db	'VirtualXT 286 BIOS', 0
 str_banner_end:
 
 str_ega_vga	db	195, ' EGA/VGA Graphics', 0
@@ -629,34 +611,6 @@ endif
 	stosw					; Set interrupt vector segment (BIOS segment)
 	loop	@@high_vectors
 
-	mov	ah, 0F6h			; ax --> ROM BASIC segment
-	mov	ds, ax				; ds -->  "	"     "
-	xor	bx, bx				; bx  =  ROM BASIC offset
-
-	mov	ah, 4				; Four BASIC ROMs to check
-
-@@basic_rom:
-	mov	dx, [bx]
-	cmp	dl, dh				; Check for code in the segment
-	je	@@no_basic			; Skip if memory is empty
-
-	cmp	dx, 0AA55h			; Check for expansion ROM in BASIC area
-	je	@@no_basic			; Skip further checking if found
-
-	call	checksum			; Scan for BASIC roms
-	jnz	@@no_basic			;   bad BASIC rom
-
-	dec	ah				; Continue
-	jnz	@@basic_rom			;   yes, more
-
-	mov	di, 60h 			; Else install BASIC
-
-	xor	ax, ax				;   0000h BASIC interrupt offset
-	stosw
-	mov	ah, 0F6h			;   F600h BASIC interrupt segment
-	stosw
-
-@@no_basic:
 	pop	ds				; Setup special low vectors
 	xor	dx, dx
 	mov	[word es:8], offset int_2	;   NMI interrupt
@@ -678,12 +632,8 @@ endif
 	mov	[ds:10h], ax			;   card has been installed
 	int	10h				;   initialize if present
 
-ifdef	IBM_PC					; Read 5150 switch config
-	mov	al, 0CCh
-	out	dx, al				; Reset keyboard
-	in	al, 60h				; Read config switches
+	; Read 5160 switch config
 
-else						; Read 5160 switch config
 	in	al, 62h 			; Get memory size (64K bytes)
 	and	al, 00001111b			;   in bits 2,3 low nibble
 	mov	ah, al				; Save memory size nibble
@@ -693,7 +643,7 @@ else						; Read 5160 switch config
 	mov	cl, 4				;   and init video mode
 	shl	al, cl				;   shift in hi nibble
 	or	al, ah
-endif
+
 	mov	ah, 0
 
 	mov	[ds:10h], ax			; Start building Equipment Flag
@@ -832,9 +782,6 @@ cold_boot:
 	jmp	warm_boot
 
 
-str_no_basic	db	'No ROM BASIC, booting from disk...', 0
-
-
 ;-----------------------------------------------
 ; IBM PC 5150 offset for int 2 (NMI)
 ;-----------------------------------------------
@@ -939,13 +886,11 @@ endif
 @@config:
 	mov	si, offset str_banner
 	call	title_print
-	mov	si, offset str_banner_2
-	call	print
 
 	test	[byte es:15h], 11111111b	; Any errors so far?
 	jz	@@no_errors			;   no, skip
 
-	mov	ax, 0300h
+	mov	ax, 0200h
 print_error:
 	call	locate
 	mov	si, offset str_error
@@ -971,12 +916,12 @@ print_error:
 	jmp	@@config
 
 @@no_errors:
-	mov	ax, 0300h			; Where to move cursor
+	mov	ax, 0200h			; Where to move cursor
 	call	locate				; Position cursor
 	call	display_cpu			; Display CPU type
 
 	mov	si, offset str_mono		; Assume mono video
-	mov	ax, 0407h
+	mov	ax, 0307h
 	call	locate
 	mov	al, [es:49h]			; Get CRT mode
 	cmp	al, 7				; Is it mono?
@@ -991,7 +936,7 @@ print_error:
 @@display_video:
 	call	print				; Print video adapter present
 
-	mov	bx, 0507h
+	mov	bx, 0407h
 	mov	al, [es:11h]			; Get equipment byte
 	push	ax
 	mov	cl, 6
@@ -1090,14 +1035,13 @@ print_error:
 	mov	[es:1Ah], ax			;   was mashing keys during memory test
 	mov	[es:1Ch], ax
 
-ifdef	WARM_BOOT_BASIC
 do_boot:
-endif
-	call	boot_basic			; Boot BASIC if space pressed
 
-ifndef	WARM_BOOT_BASIC
-do_boot:
-endif
+	mov bx, 0
+	mov	es, bx
+	mov	bl, BOOT_DELAY * 18		; Get ticks to pause at 18.2 Hz
+	call delay_keypress
+
 	mov	bl, 1				; Do a warm boot
 	call	beep				;   short beep
 	call	clear_screen			;   clear display
@@ -1381,45 +1325,6 @@ checksum_entry:
 endp	checksum
 
 
-;--------------------------------------------------------------------------------------------------
-; Give user option to boot ROM BASIC if present, otherwise display "No ROM BASIC" message
-;--------------------------------------------------------------------------------------------------
-proc	boot_basic	near
-
-	xor	cx, cx
-	mov	es, cx
-	mov	ch, [es:63h]			; Get int 18h (BASIC) segment in cx
-
-	xor	bl, bl
-	add	bh, 3
-	mov	ax, bx
-	call	locate				; Locate cursor
-
-	mov	si, offset str_no_basic		; Assume no BASIC
-	xor	dl, dl
-
-	cmp	ch, 0F6h			; If ROM BASIC is present segment will be F600h
-	jne	@@skip				; No BASIC
-
-	mov	si, offset str_boot_basic	; ROM BASIC present
-	inc	dl
-
-@@skip:
-	call	print				; Display "No BASIC" or "Boot BASIC" message
-
-	mov	bx, BOOT_DELAY * 18		; Get ticks to pause at 18.2 Hz
-	call	delay_keypress
-
-	cmp	al, ' '				; Was the keystroke a space?
-	je	@@basic				; Yes, boot BASIC
-	ret					; Otherwise return
-
-@@basic:
-	int	18h				; Boot ROM BASIC
-
-endp	boot_basic
-
-
 ;---------------------------------------------------------------------------------------------------
 ; Initial Program Load. Tries to boot from floppy first, then hard drive (external BIOS required
 ; for hard drive). If both fail ROM BASIC is run if present.
@@ -1467,12 +1372,6 @@ proc	ipl	near
 	dec	al				;   one less
 	jnz	@@retry
 
-ifndef	RETRY_DISK
-	or	ah, ah				; Disk present?
-	jnz	@@disk_error			;   yes
-endif
-
-@@no_disk:
 	push	cs
 	pop	ds
 	mov	si, offset str_insert_disk	; Load disk message
@@ -1481,16 +1380,6 @@ endif
 
 	mov	ax, 0FF06h			; Reset retry count
 	jmp	@@retry				;   and retry
-
-ifndef	RETRY_DISK
-@@disk_error:
-	xor	ax, ax
-	mov	ds, ax
-	mov	al, [ds:63h]
-	cmp	al, 0F6h			; Check for valid ROM basic segment
-	jne	@@no_disk			; No ROM basic found, keep retrying disk
-	int	18h				;   else call ROM basic
-endif
 
 endp	ipl
 
@@ -2429,9 +2318,7 @@ proc	stuff_keyboard_buffer	near
 endp	stuff_keyboard_buffer
 
 
-str_banner_2	db	CR, LF, 'Upgrades by Ya`akov Miles & Jon Petrosky', 0
 str_8088	db	'8088 CPU (', 0
-str_boot_basic	db	'Press SPACE to boot ROM BASIC...', 0
 
 
 ;---------------------------------------------------------------------------------------------------
@@ -5291,14 +5178,11 @@ endp	power
 ; BIOS Release Date and Signature
 ;--------------------------------------------------------------------------------------------------
 	entry	0FFF5h
-date	db	"10/28/17", 0			; Release date (MM/DD/YY)
+date	db	"05/20/22", 0			; Release date (MM/DD/YY)
 						;   originally 08/23/87
 	entry	0FFFEh
-ifdef	IBM_PC
-	db	0FFh				; Computer type (PC)
-else
-	db	0FEh				; Computer type (XT)
-endif
+
+	db	0FCh			; Computer type (AT/XT286)
 ;	db	0				; Checksum byte (8K ROM must sum to 0 mod 256)
 
 ends	code
