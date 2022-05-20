@@ -50,14 +50,14 @@ TURBO_HOTKEY	= 1		; Define to enable "CTRL ALT -" hotkey to toggle turbo mode
 ;TEST_CPU	= 1		; Define to test CPU at power on
 				;   If enabled, ENHANCED_KEYB must be disabled due to memory limits
 
-TEST_VIDEO	= 1		; Define to test video memory at power on (Mono/Herc/CGA only)
+;TEST_VIDEO	= 1		; Define to test video memory at power on (Mono/Herc/CGA only)
 				;   If enabled, CLEAR_UMA must be disabled due to memory limits
 
 MAX_MEMORY	= 640		; Maximum conventional memory allowed in KB (with EGA/VGA)
 ;MAX_MEMORY	= 704		; (with Mono/Hercules)
 ;MAX_MEMORY	= 736		; (with CGA)
 
-;FAST_MEM_CHECK	= 1		; Define to use faster but less thorough memory check
+FAST_MEM_CHECK	= 1		; Define to use faster but less thorough memory check
 ;NO_MEM_CHECK	= 1		; Define to clear memory only
 
 ;CLEAR_UMA	= 1		; Define to clear specifed upper memory area (UMA_START to UMA_END)
